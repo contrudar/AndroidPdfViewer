@@ -25,13 +25,11 @@ import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.widget.RelativeLayout;
 
-import com.github.barteksc.pdfviewer.exception.FileNotFoundException;
 import com.github.barteksc.pdfviewer.listener.OnDrawListener;
 import com.github.barteksc.pdfviewer.listener.OnErrorListener;
 import com.github.barteksc.pdfviewer.listener.OnLoadCompleteListener;
@@ -45,9 +43,6 @@ import com.github.barteksc.pdfviewer.util.MathUtils;
 import com.shockwave.pdfium.PdfDocument;
 import com.shockwave.pdfium.PdfiumCore;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -279,11 +274,11 @@ public class PDFView extends RelativeLayout {
         setWillNotDraw(false);
     }
 
-    private void load(String path, boolean isAsset, String password, OnLoadCompleteListener listener, OnErrorListener onErrorListener) {
-        load(path, isAsset, password, listener, onErrorListener, null);
+    private void load(byte[] data, String password, OnLoadCompleteListener listener, OnErrorListener onErrorListener) {
+        load(data, password, listener, onErrorListener, null);
     }
 
-    private void load(String path, boolean isAsset, String password, OnLoadCompleteListener onLoadCompleteListener, OnErrorListener onErrorListener, int[] userPages) {
+    private void load(byte[] data, String password, OnLoadCompleteListener onLoadCompleteListener, OnErrorListener onErrorListener, int[] userPages) {
 
         if (!recycled) {
             throw new IllegalStateException("Don't call load on a PDF View without recycling it first.");
@@ -301,7 +296,7 @@ public class PDFView extends RelativeLayout {
 
         recycled = false;
         // Start decoding document
-        decodingAsyncTask = new DecodingAsyncTask(path, isAsset, password, this, pdfiumCore);
+        decodingAsyncTask = new DecodingAsyncTask(data, password, this, pdfiumCore);
         decodingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
@@ -1104,51 +1099,15 @@ public class PDFView extends RelativeLayout {
         return pdfiumCore.getTableOfContents(pdfDocument);
     }
 
-    /**
-     * Use an asset file as the pdf source
-     */
-    public Configurator fromAsset(String assetName) {
-        InputStream stream = null;
-        try {
-            stream = getContext().getAssets().open(assetName);
-            return new Configurator(assetName, true);
-        } catch (IOException e) {
-            throw new FileNotFoundException(assetName + " does not exist.", e);
-        } finally {
-            try {
-                if (stream != null) {
-                    stream.close();
-                }
-            } catch (IOException e) {
-
-            }
-        }
-    }
-
-    /**
-     * Use a file as the pdf source
-     */
-    public Configurator fromFile(File file) {
-        if (!file.exists()) {
-            throw new FileNotFoundException(file.getAbsolutePath() + " does not exist.");
-        }
-        return new Configurator(file.getAbsolutePath(), false);
-    }
-
-    /**
-     * Use Uri as the pdf source, for use with content provider
-     */
-    public Configurator fromUri(Uri uri) {
-        return new Configurator(uri.toString(), false);
+    public Configurator fromByteArray(byte[] data) {
+        return new Configurator(data);
     }
 
     private enum State {DEFAULT, LOADED, SHOWN, ERROR}
 
     public class Configurator {
 
-        private final String path;
-
-        private final boolean isAsset;
+        private byte[] data;
 
         private int[] pageNumbers = null;
 
@@ -1176,9 +1135,8 @@ public class PDFView extends RelativeLayout {
 
         private ScrollHandle scrollHandle = null;
 
-        private Configurator(String path, boolean isAsset) {
-            this.path = path;
-            this.isAsset = isAsset;
+        private Configurator(byte[] data) {
+            this.data = data;
         }
 
         public Configurator pages(int... pageNumbers) {
@@ -1259,9 +1217,9 @@ public class PDFView extends RelativeLayout {
             PDFView.this.setScrollHandle(scrollHandle);
             PDFView.this.dragPinchManager.setSwipeVertical(swipeVertical);
             if (pageNumbers != null) {
-                PDFView.this.load(path, isAsset, password, onLoadCompleteListener, onErrorListener, pageNumbers);
+                PDFView.this.load(data, password, onLoadCompleteListener, onErrorListener, pageNumbers);
             } else {
-                PDFView.this.load(path, isAsset, password, onLoadCompleteListener, onErrorListener);
+                PDFView.this.load(data, password, onLoadCompleteListener, onErrorListener);
             }
         }
     }

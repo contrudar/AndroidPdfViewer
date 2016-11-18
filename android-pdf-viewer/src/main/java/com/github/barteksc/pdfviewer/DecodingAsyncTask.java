@@ -15,77 +15,38 @@
  */
 package com.github.barteksc.pdfviewer;
 
-import android.content.Context;
-import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.ParcelFileDescriptor;
 
-import com.github.barteksc.pdfviewer.util.FileUtils;
 import com.shockwave.pdfium.PdfDocument;
 import com.shockwave.pdfium.PdfiumCore;
-
-import java.io.File;
-import java.io.IOException;
 
 class DecodingAsyncTask extends AsyncTask<Void, Void, Throwable> {
 
     private boolean cancelled;
 
-    private String path;
-
-    private boolean isAsset;
-
     private PDFView pdfView;
 
-    private Context context;
     private PdfiumCore pdfiumCore;
     private PdfDocument pdfDocument;
     private String password;
+    private byte[] data;
 
-    public DecodingAsyncTask(String path, boolean isAsset, String password, PDFView pdfView, PdfiumCore pdfiumCore) {
+    public DecodingAsyncTask(byte[] data, String password, PDFView pdfView, PdfiumCore pdfiumCore) {
         this.cancelled = false;
         this.pdfView = pdfView;
-        this.isAsset = isAsset;
         this.password = password;
         this.pdfiumCore = pdfiumCore;
-        this.path = path;
-        context = pdfView.getContext();
+        this.data = data;
     }
 
     @Override
     protected Throwable doInBackground(Void... params) {
         try {
-            if (isAsset) {
-                path = FileUtils.fileFromAsset(context, path).getAbsolutePath();
-            }
-            pdfDocument = pdfiumCore.newDocument(getSeekableFileDescriptor(path), password);
+            pdfDocument = pdfiumCore.newDocument(data, password);
             return null;
         } catch (Throwable t) {
             return t;
         }
-    }
-
-    protected ParcelFileDescriptor getSeekableFileDescriptor(String path) throws IOException {
-        ParcelFileDescriptor pfd;
-
-        File pdfCopy = new File(path);
-        if (pdfCopy.exists()) {
-            pfd = ParcelFileDescriptor.open(pdfCopy, ParcelFileDescriptor.MODE_READ_ONLY);
-            return pfd;
-        }
-
-        if (!path.contains("://")) {
-            path = String.format("file://%s", path);
-        }
-
-        Uri uri = Uri.parse(path);
-        pfd = context.getContentResolver().openFileDescriptor(uri, "r");
-
-        if (pfd == null) {
-            throw new IOException("Cannot get FileDescriptor for " + path);
-        }
-
-        return pfd;
     }
 
     @Override
